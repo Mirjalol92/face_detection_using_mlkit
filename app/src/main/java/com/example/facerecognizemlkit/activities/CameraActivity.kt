@@ -20,6 +20,7 @@ import android.view.WindowManager
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
+import androidx.camera.core.CameraSelector.LENS_FACING_FRONT
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -77,7 +78,7 @@ class CameraActivity: AppCompatActivity(){
 
     private val imageAnalysis: ImageAnalysis by lazy {
         ImageAnalysis.Builder()
-            .setTargetResolution(Size(resources.displayMetrics.widthPixels, resources.displayMetrics.heightPixels))
+            .setTargetResolution(Size(480, 640)) //640, 480
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
             .build()
@@ -100,8 +101,10 @@ class CameraActivity: AppCompatActivity(){
         for (i in faces.indices) {
             val face = faces[i]
             val faceGraphic = FaceContourGraphic(binding.myGraphicOverlay)
-            binding.myGraphicOverlay.add(faceGraphic)
             faceGraphic.updateFace(face)
+            binding.myGraphicOverlay.apply {
+                add(faceGraphic)
+            }
         }
     }
 
@@ -109,6 +112,11 @@ class CameraActivity: AppCompatActivity(){
         super.onCreate(savedInstanceState)
         binding = ActivityCameraXBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        binding.myGraphicOverlay.apply {
+//            scaleY = resources.displayMetrics.heightPixels.toFloat()/ 640.toFloat()
+//            scaleX = resources.displayMetrics.widthPixels.toFloat()/ 480.toFloat()
+        }
 
         binding.imageCaptureButton.setOnClickListener {
             takePhoto()
@@ -178,6 +186,12 @@ class CameraActivity: AppCompatActivity(){
                 }
 
             imageAnalysis.setAnalyzer(cameraExecutor){ imageProxy->
+                val rotationDegrees = imageProxy.imageInfo.rotationDegrees
+                if (rotationDegrees == 0 || rotationDegrees == 180) {
+                    binding.myGraphicOverlay.setCameraInfo(imageProxy.width, imageProxy.height, LENS_FACING_FRONT)
+                } else {
+                    binding.myGraphicOverlay.setCameraInfo(imageProxy.height, imageProxy.width, LENS_FACING_FRONT)
+                }
                 val mediaImage = imageProxy.image
                 if(mediaImage != null) {
                     lifecycleScope.launch(Dispatchers.IO){
@@ -213,7 +227,7 @@ class CameraActivity: AppCompatActivity(){
 
             try {
                 cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(this as LifecycleOwner, cameraSelector, preview, imageCapture, imageAnalysis)
+                cameraProvider.bindToLifecycle(this as LifecycleOwner, cameraSelector, preview, imageCapture,   imageAnalysis)
                 cameraOpened = true
             }catch (ex: Exception){
                 Log.e(TAG, "Use case binding failed", ex)
